@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2019 the original author or authors.
+ * Copyright 2014-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,41 +16,42 @@
 package guestbook;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import javax.transaction.Transactional;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.util.Streamable;
-import org.springframework.ui.ExtendedModelMap;
-import org.springframework.ui.Model;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Sort;
 
 /**
- * Unit tests for {@link GuestbookController}.
+ * Integration tests for {@link GuestbookRepository}.
+ * <p>
+ * Bootstraps the application using the {@link Application} configuration class. Enables transaction rollbacks after
+ * test methods using the {@link Transactional} annotation.
  *
  * @author Oliver Drotbohm
+ * @author Paul Henke
  */
-@ExtendWith(MockitoExtension.class)
-class GuestbookControllerUnitTests {
+@SpringBootTest
+@Transactional
+class GuestbookRepositoryIntegrationTest {
 
-	@Mock GuestbookRepository guestbook;
+	@Autowired GuestbookRepository repository;
 
 	@Test
-	void populatesModelForGuestbook() {
+	void persistsGuestbookEntry() {
 
-		GuestbookEntry entry = new GuestbookEntry("Yoda", "May the 4th b with you!");
-		doReturn(Streamable.of(entry)).when(guestbook).findAll();
+		GuestbookEntry entry = repository.save(new GuestbookEntry("Yoda", "May the force be with you!","Yoda"));
 
-		Model model = new ExtendedModelMap();
+		assertThat(repository.findAll()).contains(entry);
+	}
 
-		GuestbookController controller = new GuestbookController(guestbook);
-		String viewName = controller.guestBook(model, new GuestbookForm(null, null));
+	@Test // #34
+	void findsGuestbookEntryByAuthorName() {
 
-		assertThat(viewName).isEqualTo("guestbook");
-		assertThat(model.asMap().get("entries")).isInstanceOf(Iterable.class);
-		assertThat(model.asMap().get("form")).isNotNull();
+		GuestbookEntry entry = repository.save(new GuestbookEntry("Yoda", "May the force be with you!","Yoda"));
 
-		verify(guestbook, times(1)).findAll();
+		assertThat(repository.findByName("Yoda", Sort.by("date"))).contains(entry);
 	}
 }
